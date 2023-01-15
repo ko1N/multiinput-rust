@@ -1,5 +1,5 @@
-use std::collections::HashSet;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fmt;
 use winapi::shared::hidpi::{HIDP_BUTTON_CAPS, HIDP_CAPS, HIDP_VALUE_CAPS};
 use winapi::um::winnt::HANDLE;
@@ -33,7 +33,7 @@ impl From<MouseInfo> for MouseDisplayInfo {
     fn from(mouse: MouseInfo) -> Self {
         Self {
             name: mouse.name,
-            serial: mouse.serial
+            serial: mouse.serial,
         }
     }
 }
@@ -66,7 +66,7 @@ impl From<KeyboardInfo> for KeyboardDisplayInfo {
     fn from(keyboard: KeyboardInfo) -> Self {
         Self {
             name: keyboard.name,
-            serial: keyboard.serial
+            serial: keyboard.serial,
         }
     }
 }
@@ -106,7 +106,7 @@ impl From<JoystickInfo> for JoystickDisplayInfo {
     fn from(joystick: JoystickInfo) -> Self {
         Self {
             name: joystick.name,
-            serial: joystick.serial
+            serial: joystick.serial,
         }
     }
 }
@@ -178,8 +178,18 @@ impl From<Devices> for DevicesDisplayInfo {
     fn from(devices: Devices) -> Self {
         Self {
             mice: devices.mice.iter().cloned().map(|m| m.into()).collect(),
-            keyboards: devices.keyboards.iter().cloned().map(|m| m.into()).collect(),
-            joysticks: devices.joysticks.iter().cloned().map(|m| m.into()).collect()
+            keyboards: devices
+                .keyboards
+                .iter()
+                .cloned()
+                .map(|m| m.into())
+                .collect(),
+            joysticks: devices
+                .joysticks
+                .iter()
+                .cloned()
+                .map(|m| m.into())
+                .collect(),
         }
     }
 }
@@ -236,9 +246,9 @@ impl JoystickState {
                 }
             }
             JoystickState {
-                button_states: button_states,
-                axis_states: axis_states,
-                hatswitch: hatswitch,
+                button_states,
+                axis_states,
+                hatswitch,
                 raw_axis_states: RawAxes::new(),
             }
         }

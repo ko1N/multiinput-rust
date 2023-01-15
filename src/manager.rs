@@ -1,11 +1,10 @@
-use std::sync::mpsc::TryIter;
 use devices::DevicesDisplayInfo;
 use devices::{Devices, JoystickState};
 use event::RawEvent;
-use std::sync::mpsc::TryRecvError;
 use rawinput::{get_event, get_joystick_state};
 use registrar;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::mpsc::{RecvTimeoutError, TryIter};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use winapi::shared::minwindef::UINT;
 use winapi::shared::windef::HWND;
 use winapi::um::libloaderapi::GetModuleHandleW;
@@ -13,15 +12,15 @@ use winapi::um::winuser::{
     CreateWindowExW, DefWindowProcW, RegisterClassExW, CW_USEDEFAULT, HWND_MESSAGE, WNDCLASSEXW,
 };
 
+use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::ffi::OsStr;
+use std::iter::FromIterator;
 use std::mem;
 use std::os::windows::ffi::OsStrExt;
 use std::ptr;
 use std::thread;
 use std::thread::JoinHandle;
-use std::collections::HashSet;
-use std::iter::FromIterator;
 
 use std::sync::mpsc::{channel, Receiver, Sender};
 
@@ -89,11 +88,11 @@ impl RawInputManager {
             let mut exit = false;
             let mut registrar = registrar::RawInputRegistrar::new();
             while !exit {
-                match rx.try_recv() {
-                    Err(TryRecvError::Disconnected) => {
+                match rx.recv_timeout(Duration::from_secs(1)) {
+                    Err(RecvTimeoutError::Disconnected) => {
                         panic!("Multinput Thread Unexpectedly Disconnected!")
                     }
-                    Err(TryRecvError::Empty) => {
+                    Err(RecvTimeoutError::Timeout) => {
                         std::thread::sleep(std::time::Duration::from_nanos(1));
                     }
                     Ok(Command::Register(thing)) => {
@@ -118,7 +117,9 @@ impl RawInputManager {
                     }
                     Ok(Command::PrintDeviceList) => print_raw_device_list(&devices),
                     Ok(Command::GetDeviceList) => tx_devices.send(devices.clone().into()).unwrap(),
-                    Ok(Command::GetDeviceStats) => tx_stats.send(get_device_stats(&devices)).unwrap(),
+                    Ok(Command::GetDeviceStats) => {
+                        tx_stats.send(get_device_stats(&devices)).unwrap()
+                    }
                 };
             }
         });
@@ -128,7 +129,7 @@ impl RawInputManager {
             receiver: rx2,
             joystick_receiver: rx_joy,
             device_stats_receiver: rx_stats,
-            device_info_receiver: rx_devices
+            device_info_receiver: rx_devices,
         })
     }
 
@@ -140,7 +141,9 @@ impl RawInputManager {
     /// Filters events returned to the list of names provided by the device_names list
     /// Warning: you still need to register the corresponding device types beforehand for this to work!
     pub fn filter_devices(&mut self, device_names: Vec<String>) {
-        self.sender.send(Command::FilterDevices(device_names)).unwrap();
+        self.sender
+            .send(Command::FilterDevices(device_names))
+            .unwrap();
     }
 
     /// Undoes the application of filter_devices()
@@ -151,10 +154,7 @@ impl RawInputManager {
     /// Get Event from the Input Manager
     pub fn get_event(&mut self) -> Option<RawEvent> {
         self.sender.send(Command::GetEvent).unwrap();
-        match self.receiver.try_recv() {
-            Ok(event) => Some(event),
-            _ => None 
-        }
+        self.receiver.try_recv().ok()
     }
 
     /// Get All Events from the Input Manager
@@ -166,7 +166,7 @@ impl RawInputManager {
     /// Get Joystick State from the Input Manager
     pub fn get_joystick_state(&mut self, id: usize) -> Option<JoystickState> {
         self.sender.send(Command::GetJoystickState(id)).unwrap();
-        self.joystick_receiver.recv().unwrap()
+        self.joystick_receiver.recv().ok()?
     }
 
     /// Print List of Potential Input Devices
@@ -182,8 +182,8 @@ impl RawInputManager {
 
     /// Get Device list
     pub fn get_device_list(&self) -> DevicesDisplayInfo {
-            self.sender.send(Command::GetDeviceList).unwrap();
-            self.device_info_receiver.recv().unwrap()
+        self.sender.send(Command::GetDeviceList).unwrap();
+        self.device_info_receiver.recv().unwrap()
     }
 }
 

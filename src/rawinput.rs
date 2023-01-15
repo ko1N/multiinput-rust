@@ -144,9 +144,8 @@ pub fn produce_raw_device_list(incl_360_devices: bool) -> Devices {
             };
             let serial = get_serial_number(hid_handle);
             let device_info_option = get_device_info(device_handle, name, serial);
-            match device_info_option {
-                None => continue,
-                _ => (),
+            if device_info_option.is_none() {
+                continue;
             }
             let device_info = device_info_option.unwrap();
             match device_type {
@@ -226,9 +225,9 @@ pub unsafe fn raw_name_to_hid(name: String) -> Result<HANDLE, String> {
         ptr::null_mut(),
     );
     if hid_handle != INVALID_HANDLE_VALUE {
-        return Ok(hid_handle);
+        Ok(hid_handle)
     } else {
-        return Err("Could not get the HID handle of device ".to_string() + &name);
+        Err("Could not get the HID handle of device ".to_string() + &name)
     }
 }
 
@@ -251,15 +250,15 @@ pub unsafe fn get_device_info(
 
     return match raw_info.dwType {
         RIM_TYPEMOUSE => Some(DeviceInfo::Mouse(MouseInfo {
-            name: name,
-            handle: handle,
-            serial: serial,
+            name,
+            handle,
+            serial,
             info: raw_info,
         })),
         RIM_TYPEKEYBOARD => Some(DeviceInfo::Keyboard(KeyboardInfo {
-            name: name,
-            handle: handle,
-            serial: serial,
+            name,
+            handle,
+            serial,
             info: raw_info,
         })),
         RIM_TYPEHID => {
